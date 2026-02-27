@@ -2,6 +2,8 @@
 require 'auth.php';
 require 'config.php';
 
+header('Content-Type: application/json; charset=utf-8');
+
 $text   = trim($_POST['text'] ?? '');
 $mode   = $_POST['mode'] ?? 'email';
 $length = $_POST['length'] ?? 'short';
@@ -17,12 +19,6 @@ if ($text === '') {
     echo json_encode(['error' => 'Empty input']);
     exit;
 }
-
-// $prompts = [
-//     'email' => 'Rewrite as a formal professional email.',
-//     'whatsapp' => 'Rewrite as a polite professional WhatsApp message.',
-//     'ticket' => 'Rewrite as a professional support ticket reply.'
-// ];
 
 $prompts = [
     'email' =>
@@ -55,7 +51,6 @@ $tones = [
     'empathetic' => 'Use an empathetic, customer-care tone.'
 ];
 
-
 $systemPrompt =
     ($prompts[$mode] ?? $prompts['email']) .
     ($length === 'detailed'
@@ -76,8 +71,15 @@ if ($api === 'openai') {
     $defaultModel = OPENAI_MODEL;
 } else {
     $url = DEEPSEEK_API_URL;
+    // DeepSeek docs primarily use /chat/completions; normalize in case /v1/chat/completions is configured.
+    $url = preg_replace('#/v1/chat/completions$#', '/chat/completions', $url);
     $key = $apiKey !== '' ? $apiKey : DEEPSEEK_API_KEY;
     $defaultModel = DEEPSEEK_MODEL;
+}
+
+if (!function_exists('curl_init')) {
+    echo json_encode(['error' => 'cURL extension is not enabled on this server.']);
+    exit;
 }
 
 $selectedModel = $model !== '' ? $model : $defaultModel;
@@ -92,6 +94,11 @@ $payload = [
 ];
 
 $ch = curl_init($url);
+if ($ch === false) {
+    echo json_encode(['error' => 'Unable to initialize request.']);
+    exit;
+}
+
 curl_setopt_array($ch, [
     CURLOPT_RETURNTRANSFER => true,
     CURLOPT_POST => true,
@@ -99,22 +106,38 @@ curl_setopt_array($ch, [
         'Authorization: Bearer ' . $key,
         'Content-Type: application/json'
     ],
-    CURLOPT_POSTFIELDS => json_encode($payload)
+    CURLOPT_POSTFIELDS => json_encode($payload),
+    CURLOPT_CONNECTTIMEOUT => 15,
+    CURLOPT_TIMEOUT => 60
 ]);
 
 $response = curl_exec($ch);
 $curlError = curl_error($ch);
+$httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
 curl_close($ch);
-
-$data = json_decode($response, true);
 
 if ($curlError) {
     echo json_encode(['error' => 'Request failed: ' . $curlError]);
     exit;
 }
 
+if ($response === false || $response === '') {
+    echo json_encode(['error' => 'Empty response from AI provider.']);
+    exit;
+}
+
+$data = json_decode($response, true);
+
+if (!is_array($data)) {
+    $snippet = mb_substr(trim(strip_tags($response)), 0, 220);
+    echo json_encode([
+        'error' => 'Provider returned a non-JSON response (HTTP ' . (int)$httpCode . '). ' . $snippet
+    ]);
+    exit;
+}
+
 if (!isset($data['choices'][0]['message']['content'])) {
-    $errorMessage = $data['error']['message'] ?? 'Failed';
+    $errorMessage = $data['error']['message'] ?? 'Provider response did not include output text.';
     echo json_encode(['error' => $errorMessage]);
     exit;
 }

@@ -431,12 +431,20 @@ function rewrite() {
         headers: {'Content-Type': 'application/x-www-form-urlencoded'},
         body: data.toString()
     })
-    .then(response => response.json())
-    .then(payload => {
+    .then(async (response) => {
+        const raw = await response.text();
+        let payload;
+
+        try {
+            payload = JSON.parse(raw);
+        } catch (_) {
+            payload = { error: `Unexpected server response (HTTP ${response.status}). ${raw.slice(0, 220)}` };
+        }
+
         document.getElementById('output').innerText = payload.result || payload.error || 'Unknown response';
     })
-    .catch(() => {
-        document.getElementById('output').innerText = 'Network or server error. Please try again.';
+    .catch((err) => {
+        document.getElementById('output').innerText = `Request failed: ${err.message}`;
     })
     .finally(() => {
         document.getElementById('loader').style.display = 'none';
