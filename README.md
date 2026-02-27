@@ -14,6 +14,7 @@ and also works as a Telegram bot using the same backend logic.
 FEATURES
 --------------------------------------------------
 
+- Responsive and minimalist web experience (mobile + desktop)
 - Rewrite messages into:
   - Professional Emails
   - Polite WhatsApp messages
@@ -23,10 +24,29 @@ FEATURES
   - OpenAI
   - DeepSeek
 
-- Clean Bootstrap-based web interface
+- Multi-model selector per provider
+- Use your own API key (BYOK) directly from the UI (optional)
+- Extra actions:
+  - Rewrite
+  - Summarize
+  - Convert to bullet points
+  - Add clear next-step CTA
+
+- Tone controls:
+  - Professional
+  - Friendly
+  - Assertive
+  - Empathetic
+
+- Output length controls (short / detailed)
+- Language selector
+- Custom command field for additional formatting rules
+- Quick templates for common business replies
+- Copy output, clear form, and output-to-input reuse action
+
 - Secure login system (session-based)
 - Supports multiple users
-- Telegram bot support using the same rewrite engine
+- Telegram bot support using the same backend logic
 - Stateless requests (no conversation history)
 - Fast and predictable output
 - Works on shared hosting or VPS
@@ -97,7 +117,8 @@ SECURITY NOTES
 - config.php should never be publicly accessible
 - rewrite endpoints must always be protected by auth.php
 - Restrict Telegram bot access using allowed user IDs
-- Do not expose API keys in frontend code
+- Do not expose API keys in frontend code for production environments
+- If using BYOK in production, prefer encrypted storage/session handling
 
 --------------------------------------------------
 RECOMMENDED FILES TO IGNORE
