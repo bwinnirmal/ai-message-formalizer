@@ -185,6 +185,38 @@ textarea.form-control {
     background: #fff;
 }
 
+.history-wrap {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: #fff;
+    max-height: 340px;
+    overflow: auto;
+}
+
+.history-item {
+    border-bottom: 1px solid var(--border);
+    padding: 0.7rem;
+}
+
+.history-item:last-child {
+    border-bottom: none;
+}
+
+.history-meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 0.35rem;
+}
+
+.history-preview {
+    font-size: 0.86rem;
+    color: #344054;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
 #loader {
     display: none;
     color: var(--muted);
@@ -347,6 +379,16 @@ footer a {
                 <label for="output">Output</label>
                 <div id="output"></div>
             </div>
+
+            <div class="field full">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label class="mb-0">Recent history (no database)</label>
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="clearHistory()">Clear History</button>
+                </div>
+                <div class="history-wrap" id="historyList">
+                    <div class="p-3 text-secondary small">No history yet.</div>
+                </div>
+            </div>
         </div>
     </section>
 </main>
@@ -403,6 +445,70 @@ function swapText() {
     document.getElementById('text').value = output;
 }
 
+
+function formatHistoryMeta(item) {
+    const date = new Date(item.created_at);
+    const time = Number.isNaN(date.getTime()) ? item.created_at : date.toLocaleString();
+    return `${time} • ${item.provider}/${item.model} • ${item.mode} • ${item.action}`;
+}
+
+function renderHistory(items) {
+    const root = document.getElementById('historyList');
+    if (!items.length) {
+        root.innerHTML = '<div class="p-3 text-secondary small">No history yet.</div>';
+        return;
+    }
+
+    root.innerHTML = items.map((item) => `
+        <div class="history-item">
+            <div class="history-meta">${formatHistoryMeta(item)}</div>
+            <div class="history-preview">${(item.output || '').replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+            <div class="mt-2 d-flex gap-2">
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="useHistoryInput('${item.id}')">Use input</button>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="useHistoryOutput('${item.id}')">Use output</button>
+            </div>
+        </div>
+    `).join('');
+}
+
+async function loadHistory() {
+    try {
+        const response = await fetch('history.php');
+        const payload = await response.json();
+        window.__historyItems = payload.history || [];
+        renderHistory(window.__historyItems);
+    } catch (_) {
+        document.getElementById('historyList').innerHTML = '<div class="p-3 text-danger small">Unable to load history.</div>';
+    }
+}
+
+async function clearHistory() {
+    try {
+        await fetch('history.php?action=clear');
+        window.__historyItems = [];
+        renderHistory([]);
+    } catch (_) {
+        document.getElementById('output').innerText = 'Failed to clear history.';
+    }
+}
+
+function findHistoryItem(id) {
+    const items = window.__historyItems || [];
+    return items.find((entry) => entry.id === id);
+}
+
+function useHistoryInput(id) {
+    const item = findHistoryItem(id);
+    if (!item) return;
+    document.getElementById('text').value = item.input || '';
+}
+
+function useHistoryOutput(id) {
+    const item = findHistoryItem(id);
+    if (!item) return;
+    document.getElementById('text').value = item.output || '';
+}
+
 function rewrite() {
     const text = document.getElementById('text').value.trim();
     if (!text) {
@@ -442,6 +548,9 @@ function rewrite() {
         }
 
         document.getElementById('output').innerText = payload.result || payload.error || 'Unknown response';
+        if (payload.result) {
+            loadHistory();
+        }
     })
     .catch((err) => {
         document.getElementById('output').innerText = `Request failed: ${err.message}`;
@@ -466,6 +575,7 @@ function copyText() {
 }
 
 syncModels();
+loadHistory();
 </script>
 </body>
 </html>

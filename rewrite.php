@@ -4,6 +4,32 @@ require 'config.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
+
+function saveToHistory(array $entry): void
+{
+    $username = $_SESSION['username'] ?? 'user';
+    $safeUser = preg_replace('/[^a-zA-Z0-9_-]/', '_', $username);
+    $dir = __DIR__ . '/storage';
+    $file = $dir . '/history_' . $safeUser . '.json';
+
+    if (!is_dir($dir)) {
+        mkdir($dir, 0755, true);
+    }
+
+    $history = [];
+    if (file_exists($file)) {
+        $decoded = json_decode((string) file_get_contents($file), true);
+        if (is_array($decoded)) {
+            $history = $decoded;
+        }
+    }
+
+    array_unshift($history, $entry);
+    $history = array_slice($history, 0, 50);
+
+    file_put_contents($file, json_encode($history, JSON_UNESCAPED_UNICODE));
+}
+
 $text   = trim($_POST['text'] ?? '');
 $mode   = $_POST['mode'] ?? 'email';
 $length = $_POST['length'] ?? 'short';
@@ -142,6 +168,22 @@ if (!isset($data['choices'][0]['message']['content'])) {
     exit;
 }
 
+$resultText = $data['choices'][0]['message']['content'];
+
+saveToHistory([
+    'id' => bin2hex(random_bytes(8)),
+    'created_at' => date('c'),
+    'mode' => $mode,
+    'action' => $action,
+    'tone' => $tone,
+    'length' => $length,
+    'language' => $language,
+    'provider' => $api,
+    'model' => $selectedModel,
+    'input' => $text,
+    'output' => $resultText
+]);
+
 echo json_encode([
-    'result' => $data['choices'][0]['message']['content']
+    'result' => $resultText
 ]);

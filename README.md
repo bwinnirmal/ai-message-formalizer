@@ -15,6 +15,7 @@ FEATURES
 --------------------------------------------------
 
 - Responsive and minimalist web experience (mobile + desktop)
+- Modern redesigned login screen
 - Rewrite messages into:
   - Professional Emails
   - Polite WhatsApp messages
@@ -43,6 +44,7 @@ FEATURES
 - Custom command field for additional formatting rules
 - Quick templates for common business replies
 - Copy output, clear form, and output-to-input reuse action
+- Per-user history (without database) stored as local JSON files on server
 
 - Secure login system (session-based)
 - Supports multiple users
